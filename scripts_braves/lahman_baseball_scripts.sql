@@ -193,4 +193,20 @@ ORDER BY playerid
 -- 	ON sub.lgid = am.lgid
 -- WHERE am.awardid = 'TSN Manager of the Year' AND am.lgid='AL'
 
+WITH mgr_awards AS 
+	(SELECT am.playerid, am.awardid, am.lgid
+	FROM awardsmanagers as am
+	WHERE awardid = 'TSN Manager of the Year')
+SELECT playerid, awardid, lgid
+FROM mgr_awards
+WHERE mgr_awards.lgid = 'NL' OR mgr_awards.lgid = 'AL'
+ORDER BY playerid
+
+SELECT am.playerid, am.awardid, am.lgid
+FROM awardsmanagers as am
+WHERE awardid = 'TSN Manager of the Year'
+GROUP BY am.playerid, am.awardid, am.lgid
+HAVING lgid IN ('NL', 'AL')
+ORDER BY am.playerid
+
 -- 10. Find all players who hit their career highest number of home runs in 2016. Consider only players who have played in the league for at least 10 years, and who hit at least one home run in 2016. Report the players' first and last names and the number of home runs they hit in 2016.
