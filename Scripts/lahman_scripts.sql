@@ -332,12 +332,86 @@ ORDER BY home_runs_2016 DESC;
 
 
 
-
+--open ended question 
 
 SELECT *
 FROM people
 WHERE birthcountry = 'Japan'
 
 
+SELECT *
+FROM people
+WHERE birthcountry = 'USA'
+
+--top countries people are from 
+SELECT birthcountry, count(birthcountry) 
+FROM people
+GROUP BY birthcountry
+ORDER BY count(birthcountry) DESC
+LIMIT 10
 
 
+--left handed and right handed
+SELECT count(throws), count(bats) 
+FROM people
+WHERE birthcountry = 'Japan' AND 
+	  bats = 'R' AND 
+	  throws = 'R'
+
+SELECT  count(bats) 
+FROM people
+WHERE birthcountry = 'Japan' AND 
+	  bats = 'L' AND 
+	  throws = 'L'
+
+SELECT count(throws)
+FROM people
+WHERE birthcountry = 'Japan' AND
+	  throws = 'L'
+
+--What prefecture most of the platers come from
+
+SELECT  birthstate, count (birthstate)
+FROM people 
+WHERE birthcountry = 'Japan' 
+GROUP BY birthstate
+ORDER BY count (birthstate) DESC
+
+
+
+
+--Highest total paid Japanese player in the dataset 
+
+
+SELECT  namelast, namefirst, birthstate, weight, height, sum (salary)
+FROM people
+INNER JOIN salaries 
+USING (playerid)
+WHERE birthcountry = 'Japan'
+GROUP BY namelast, namefirst, birthstate, weight, height
+ORDER BY sum (salary) DESC
+LIMIT 8
+
+SELECT namefirst, namelast, SUM (s.salary) 
+FROM people
+	INNER JOIN salaries as s
+	USING (playerid)
+WHERE playerid IN (SELECT DISTINCT playerid
+				   FROM people
+				   WHERE birthcountry = 'Japan')
+GROUP BY namefirst, namelast
+ORDER BY sum (salary) DESC
+
+SELECT sum (salary)
+FROM salaries
+WHERE playerid = 'suzukic01'
+
+
+SELECT birthcountry, birthyear
+FROM people
+
+
+SELECT birthyear, birthcountry , count (birthcountry)
+FROM people
+GROUP BY birthyear, birthcountry
+ORDER BY birthyear
