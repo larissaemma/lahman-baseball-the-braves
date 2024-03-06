@@ -200,3 +200,37 @@ SELECT *
 FROM players2016
 INNER JOIN rawrh
 USING (playerid, hr)
+
+--11. Is there any correlation between number of wins and team salary? Use data from 2000 and later to answer this question. As you do this analysis, keep in mind that salaries across the whole league tend to increase together, so you may want to look on a year-by-year basis.
+
+SELECT sub.year AS year,
+	ROUND(SUM(sub.wins_per_year) / SUM(sub.team), 2) AS avg_wins_per_year,
+	RANK() OVER(ORDER BY ROUND(SUM(sub.wins_per_year) / SUM(sub.team), 2) DESC) AS rank_avg_wins_per_year,
+	MAX(sub.total_wins) AS max_total_wins,
+	RANK() OVER(ORDER BY MAX(sub.total_wins) DESC) AS rank_max_total_wins,
+	ROUND(SUM(sub.annual_salary)::NUMERIC / SUM(sub.team)::NUMERIC, 2) AS avg_annual_team_salary,
+	RANK() OVER(ORDER BY ROUND(SUM(sub.annual_salary)::NUMERIC / SUM(sub.team)::NUMERIC, 2) DESC) AS 				rank_avg_annual_team_salary,
+	ROUND(MAX(sub.annual_salary)::NUMERIC, 2) AS highest_team_salary,
+	RANK() OVER(ORDER BY ROUND(MAX(sub.annual_salary)::NUMERIC, 2) DESC) AS rank_highest_team_salary
+FROM
+	(SELECT DISTINCT(t.yearid) AS year,
+	 		t.w AS total_wins,
+	 		COUNT(DISTINCT t.teamid) AS team,
+	 		s.teamid AS teamid,
+	 	AVG(t.W) AS wins_per_year,
+	 	SUM(s.salary) AS annual_salary
+	FROM teams AS t
+	JOIN salaries AS s
+	USING (teamid, yearid)
+	WHERE yearid >= 2000
+	GROUP BY t.yearid, s.teamid, total_wins) AS sub
+GROUP BY year
+ORDER BY year ASC;
+
+--12. In this question, you will explore the connection between number of wins and attendance.
+
+--a. Does there appear to be any correlation between attendance at home games and number of wins?
+
+--b. Do teams that win the world series see a boost in attendance the following year? What about teams that made the playoffs? Making the playoffs means either being a division winner or a wild card winner.
+
+--13. It is thought that since left-handed pitchers are more rare, causing batters to face them less often, that they are more effective. Investigate this claim and present evidence to either support or dispute this claim. First, determine just how rare left-handed pitchers are compared with right-handed pitchers. Are left-handed pitchers more likely to win the Cy Young Award? Are they more likely to make it into the hall of fame?
