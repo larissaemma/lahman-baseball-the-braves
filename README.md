@@ -156,11 +156,13 @@ ORDER BY birthyear;
 2. **Shortest Player, Games Played, and Team**
    - **Query:**
      ```sql
-     SELECT p.namefirst, p.namelast, p.height, a.g_all, t.name
-     FROM people p
-     LEFT JOIN appearances a ON p.playerid = a.playerid
-     LEFT JOIN teams t ON a.teamid = t.teamid
-     WHERE p.height = (SELECT MIN(height) FROM people)
+     SELECT p.namefirst, p.namelast, MIN(p.height), a.g_all AS games_played, teams.name
+     FROM people as p
+     LEFT JOIN appearances as a
+     ON p.playerid = a.playerid
+     LEFT JOIN teams 
+     ON a.teamid = t.teamid
+     GROUP BY p.namefirst, p.namelast, p.height, a.g_all, teams.name
      ORDER BY p.height ASC
      LIMIT 1;
      ```
@@ -169,14 +171,9 @@ ORDER BY birthyear;
 3. **Vanderbilt University Players and Total Salary Earned**
    - **Query:**
      ```sql
-     SELECT p.namefirst, p.namelast, SUM(s.salary) AS total_salary
-     FROM people p
-     INNER JOIN salaries s USING (playerid)
-     WHERE p.playerid IN (
-       SELECT DISTINCT playerid FROM collegeplaying WHERE schoolid = 'vandy'
-     )
-     GROUP BY p.namefirst, p.namelast
-     ORDER BY total_salary DESC;
+     SELECT *
+     FROM public.schools
+     WHERE schoolname = 'Vanderbilt University'
      ```
    - **Answer:** **David Price** is the top earner among Vanderbilt players, with a total salary of **\$245,553,888**.
 
@@ -199,11 +196,13 @@ ORDER BY birthyear;
 5. **Strikeouts and Home Runs Per Game by Decade Since 1920**
    - **Query:**
      ```sql
-     SELECT
-       (FLOOR(yearid / 10) * 10) AS decade,
-       ROUND(AVG(so::float / g), 2) AS avg_strikeouts,
-       ROUND(AVG(hr::float / g), 2) AS avg_home_runs
-     FROM pitching
+     SELECT *
+     FROM public.pitching
+
+     SELECT (FLOOR(yearid / 10) * 10) AS decade,
+       ROUND(AVG(so::float / g), 2) AS avg_so,
+       ROUND(AVG(hr::float / g), 2) AS avg_hr
+     FROM pitching.pitching
      WHERE yearid >= 1920
      GROUP BY decade
      ORDER BY decade;
@@ -215,23 +214,33 @@ ORDER BY birthyear;
      ```sql
      SELECT
        p.namefirst, p.namelast,
-       ROUND(CAST(b.sb AS DECIMAL) / CAST((b.sb + b.cs) AS DECIMAL) * 100, 2) AS success_rate
+       ROUND(CAST(b.sb AS DECIMAL) / CAST((b.sb + b.cs) AS DECIMAL) * 100, 2) AS attempt
      FROM batting b
-     INNER JOIN people p USING (playerid)
+     INNER JOIN people p 
      WHERE (b.sb + b.cs) >= 20 AND yearid = 2016
-     ORDER BY success_rate DESC
+     ORDER BY attempt DESC
      LIMIT 1;
      ```
    - **Answer:** The most successful base stealer in 2016 is dynamically determined with a success rate calculation.
 
 7. **Largest Wins Without a World Series Win and Smallest Wins for World Series Champions (1970–2016)**
-   - **Query (Largest Wins):**
+   - **Query:**
      ```sql
      SELECT name, MAX(w) AS wins FROM teams WHERE yearid BETWEEN 1970 AND 2016 AND wswin = 'N';
-     ```
-   - **Query (Smallest Wins):**
-     ```sql
-     SELECT name, MIN(w) AS wins FROM teams WHERE yearid BETWEEN 1970 AND 2016 AND wswin = 'Y';
+     WITH maxwins AS
+     (SELECT yearid, MAX (w) as w
+     	FROM teams
+     	WHERE yearid >= 1970 AND yearid != 1981
+     	GROUP BY yearid),
+     flagteams AS
+     	(SELECT teams.name, teams.wswin, maxwins.yearid, maxwins.w
+     	FROM maxwins
+     	INNER JOIN teams
+     	USING (yearid, w))
+     SELECT (SELECT count(*)
+	   FROM flagteams
+	   WHERE wswin = 'Y') *100.0/ count (*)
+     FROM flagteams
      ```
    - **Answer:**
      - **Seattle Mariners (116 wins):** Largest wins without a World Series win.
@@ -256,15 +265,24 @@ ORDER BY birthyear;
 9. **Managers Who Won TSN Manager of the Year in Both Leagues**
    - **Query:**
      ```sql
-     WITH dual_winners AS (
-       SELECT playerid FROM awardsmanagers
-       WHERE awardid = 'TSN Manager of the Year' AND lgid IN ('AL', 'NL')
-       GROUP BY playerid HAVING COUNT(DISTINCT lgid) = 2
+     WITH both_league_winners AS (
+     SELECT
+		playerid
+     FROM awardsmanagers
+     	WHERE awardid = 'TSN Manager of the Year'
+		AND lgid IN ('AL', 'NL')
+     GROUP BY playerid
+     	HAVING COUNT(DISTINCT lgid) = 2
      )
-     SELECT DISTINCT p.namefirst, p.namelast, m.teamid, m.yearid
-     FROM dual_winners dw
-     JOIN people p ON dw.playerid = p.playerid
-     JOIN managers m ON dw.playerid = m.playerid;
+     SELECT DISTINCT people.namefirst, people.namelast, managers.teamid, managers.lgid, yearid
+     	FROM people
+     	INNER JOIN managers
+     	USING (playerid)
+     	INNER JOIN awardsmanagers
+     	USING (playerid, yearid)
+     	INNER JOIN both_league_winners
+     	USING (playerid)
+
      ```
    - **Answer:** The managers who won this award in both leagues are identified dynamically through the query.
 
@@ -272,12 +290,18 @@ ORDER BY birthyear;
     - **Query:**
       ```sql
       SELECT
-        p.namefirst, p.namelast,
-        ROUND(SUM(p.so) * 1.0 / SUM(p.ipouts / 3), 2) AS k_per_inning
-      FROM pitching p
-      INNER JOIN people pl ON p.playerid = pl.playerid
-      WHERE (p.ipouts / 3) >= 500
-      GROUP BY pl.namefirst, pl.namel
+      	p.namefirst || ' ' || p.namelast AS player_name,
+      	b.hr AS home_runs_2016
+      FROM batting AS b
+      	INNER JOIN people AS p ON b.playerID = p.playerid
+      	WHERE b.yearid = 2016
+      AND hr > 0
+      	AND EXTRACT(YEAR FROM debut::date) <= 2016 - 9
+      AND b.hr = (
+        SELECT MAX(hr)
+        FROM batting
+        WHERE playerid = b.playerid)
+      ORDER BY home_runs_2016 DESC;
  - **Answer:** The top pitcher with the highest
 
 
